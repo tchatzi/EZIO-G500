@@ -1,0 +1,590 @@
+#!/usr/bin/perl -w
+use strict;
+use warnings;
+use Time::HiRes;
+use bytes;
+use constant {
+LED_1_RED       =>          0x10,
+LED_1_GREEN     =>          0x20,
+LED_2_RED       =>          0x30,
+LED_2_GREEN     =>          0x40,
+LED_3_RED       =>          0x50,
+LED_3_GREEN     =>          0x60,
+BYTES_PER_LINE  =>          128,
+BYTES_AVAILABLE =>          1024,
+};
+#make sure to send stty -F/dev/ttyS1 raw clocal speed 115200 before
+#based on work done by Saint-Frater on https://git.nox-rhea.org/globals/reverse-engineering/ezio-g500
+
+#Copyright (c) 2021 arx.net - Thanos Chatziathanassiou . All rights reserved.
+#This program is free software; you can redistribute it and/or
+#modify it under the same terms as Perl itself.
+#See [http://www.perl.com/perl/misc/Artistic.html](http://www.perl.com/perl/misc/Artistic.html)
+
+#TODO:  
+#- make sure the serial port is in working condition without stty
+#- probably rewrite in C or Rust (I had no compiler handy when I wrote this)
+#- make the LEDs work (should be easy but haven't gotten around to it)
+#- handle running out of space in the LCD in a more elegant way
+#- make renders for more symbols / small letters
+#- handle charsets outside of ASCII
+
+#default for checkpoint 12200 / P210 on Linux
+my $serial_device = "/dev/ttyS1";
+
+sub init {
+        return chr(hex(0x1b)).chr(hex(0x40));
+}
+sub clear {
+        return chr(hex(0x0c));
+}
+sub home {
+        return chr(hex(0x0b));
+}
+
+sub renderA {
+        my $letter = [
+                                        0b01111100,
+                                        0b00010010,
+                                        0b01111100,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderB {
+        my $letter = [
+                                        0b01111110,
+                                        0b01001010,
+                                        0b00110100,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderC {
+        my $letter = [
+                                        0b00111100,
+                                        0b01000010,
+                                        0b00100100,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderD {
+        my $letter = [
+                                        0b01111110,
+                                        0b01000010,
+                                        0b00111100,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderE {
+        my $letter = [
+                                        0b01111110,
+                                        0b01001010,
+                                        0b01001010,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderF {
+        my $letter = [
+                                        0b01111110,
+                                        0b00001010,
+                                        0b00001010,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderG {
+        my $letter = [
+                                        0b00111100,
+                                        0b01000010,
+                                        0b01010010,
+                                        0b00110100,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderH {
+        my $letter = [
+                                        0b01111110,
+                                        0b00001000,
+                                        0b01111110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+
+}
+sub renderI {
+        my $letter = [
+                                        0b01000010,
+                                        0b01111110,
+                                        0b01000010,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+
+}
+sub renderJ {
+        my $letter = [
+                                        0b00100010,
+                                        0b01000010,
+                                        0b01111110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+
+}
+sub renderK {
+        my $letter = [
+                                        0b01111110,
+                                        0b00001000,
+                                        0b01110110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+
+}
+sub renderL {
+        my $letter = [
+                                        0b01111110,
+                                        0b01000000,
+                                        0b01000000,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderM {
+            my $letter = [
+                                        0b01111110,
+                                        0b00001000,
+                                        0b00110000,
+                                        0b00001000,
+                                        0b01111110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderN {
+        my $letter = [
+                                        0b01111110,
+                                        0b00001000,
+                                        0b00010000,
+                                        0b01111110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderO {
+        my $letter = [
+                                        0b00111100,
+                                        0b01000010,
+                                        0b00111100,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderP {
+        my $letter = [
+                                        0b01111110,
+                                        0b00010010,
+                                        0b00001100,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderQ {
+        my $letter = [
+                                        0b00111100,
+                                        0b01010010,
+                                        0b00111100,
+                                        0b01000000,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderR {
+        my $letter = [
+                                        0b01111110,
+                                        0b00001010,
+                                        0b01110100,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderS {
+        my $letter = [
+                                        0b01000100,
+                                        0b01001010,
+                                        0b00110010,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderT {
+        my $letter = [
+                                        0b00000010,
+                                        0b01111110,
+                                        0b00000010,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderU {
+        my $letter = [
+                                        0b00111110,
+                                        0b01000000,
+                                        0b00111110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderV {
+        my $letter = [
+                                        0b00000110,
+                                        0b00011000,
+                                        0b01100000,
+                                        0b00011000,
+                                        0b00000110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderW {
+            my $letter = [
+                                        0b01111110,
+                                        0b00100000,
+                                        0b00011000,
+                                        0b00100000,
+                                        0b01111110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderX {
+        my $letter = [
+                                        0b01110110,
+                                        0b00001000,
+                                        0b01110110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderY {
+        my $letter = [
+                                        0b00001110,
+                                        0b01110000,
+                                        0b00001110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderZ {
+        my $letter = [
+                                        0b01000010,
+                                        0b01110010,
+                                        0b01011010,
+                                        0b01000110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+
+sub render0 {
+        my $letter = [
+                                        0b00111100,
+                                        0b01001010,
+                                        0b01010010,
+                                        0b00111100,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub render1 {
+        my $letter = [
+                                        0b01000010,
+                                        0b01111110,
+                                        0b01000000,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+
+}
+sub render2 {
+        my $letter = [
+                                        0b01111010,
+                                        0b01001010,
+                                        0b01001110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub render3 {
+        my $letter = [
+                                        0b01001010,
+                                        0b01001010,
+                                        0b01111110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub render4 {
+        my $letter = [
+                                        0b00001110,
+                                        0b00001000,
+                                        0b01111110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub render5 {
+        my $letter = [
+                                        0b01001110,
+                                        0b01001010,
+                                        0b01111010,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub render6 {
+        my $letter = [
+                                        0b01111110,
+                                        0b01010010,
+                                        0b01110010,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub render7 {
+        my $letter = [
+                                        0b01100010,
+                                        0b00011010,
+                                        0b00000110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+
+}
+sub render8 {
+        my $letter = [
+                                        0b01111110,
+                                        0b01001010,
+                                        0b01111110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub render9 {
+        my $letter = [
+                                        0b01001110,
+                                        0b01001010,
+                                        0b01111110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderspace {
+        my $letter = [
+                                        0b00000000,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderdot {
+        my $letter = [
+                                        0b01000000,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub rendersemi {
+        my $letter = [
+                                        0b00100100,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderslash {
+        my $letter = [
+                                        0b01100000,
+                                        0b00011000,
+                                        0b00000110,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderbslash {
+        my $letter = [
+                                        0b00000110,
+                                        0b00011000,
+                                        0b01100000,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub rendercomma {
+        my $letter = [
+                                        0b01100000,
+                                        0b00100000,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+sub renderdash {
+        my $letter = [
+                                        0b00010000,
+                                        0b00010000,
+                                        0b00010000,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
+
+sub check_wrap {
+        my ($bytes_written, $bytes_this_line) = @_;
+
+        if ( ($$bytes_this_line+$bytes_written) == BYTES_PER_LINE() ) {
+                $$bytes_this_line = 0; #fits exactly, will wrap by itself
+                return $bytes_written;
+        }
+        elsif ( ($$bytes_this_line+$bytes_written) > BYTES_PER_LINE() ) {
+                for (my $i=$$bytes_this_line; $i<BYTES_PER_LINE(); $i++) {
+                #print $serial chr(0b00000000);
+        }
+        
+        $$bytes_this_line = 0;
+        return 0;
+        }
+        else {
+                $$bytes_this_line += $bytes_written;
+                return $bytes_written;
+        }
+}
+
+sub wrap {
+        my ($bytes_this_line) = @_;
+        my @spaces;
+                #warn "will fill $bytes_this_line to ".BYTES_PER_LINE()."\n";
+                for (my $i=$bytes_this_line; $i<BYTES_PER_LINE(); $i++) {
+                        push @spaces, chr(0b00000000);
+                }
+        
+        return @spaces;
+}
+
+my $map2bytes = {
+        "A"     =>      \&renderA,
+        "B"     =>      \&renderB,
+        "C"     =>      \&renderC,
+        "D"     =>      \&renderD,
+        "E"     =>      \&renderE,
+        "F"     =>      \&renderF,
+        "G"     =>      \&renderG,
+        "H"     =>      \&renderH,
+        "I"     =>      \&renderI,
+        "J"     =>      \&renderJ,
+        "K"     =>      \&renderK,
+        "L"     =>      \&renderL,
+        "M"     =>      \&renderM,
+        "N"     =>      \&renderN,
+        "O"     =>      \&renderO,
+        "P"     =>      \&renderP,
+        "Q"     =>      \&renderQ,
+        "R"     =>      \&renderR,
+        "S"     =>      \&renderS,
+        "T"     =>      \&renderT,
+        "U"     =>      \&renderU,
+        "V"     =>      \&renderV,
+        "W"     =>      \&renderW,
+        "X"     =>      \&renderX,
+        "Y"     =>      \&renderY,
+        "Z"     =>      \&renderZ,
+        "1"     =>      \&render1,
+        "2"     =>      \&render2,
+        "3"     =>      \&render3,
+        "4"     =>      \&render4,
+        "5"     =>      \&render5,
+        "6"     =>      \&render6,
+        "7"     =>      \&render7,
+        "8"     =>      \&render8,
+        "9"     =>      \&render9,
+        "0"     =>      \&render0,
+        " "     =>      \&renderspace,
+        "."     =>      \&renderdot,
+        ":"     =>      \&rendersemi,
+        "/"     =>      \&renderslash,
+        "\\"=>  \&renderbslash,
+        ","     =>      \&rendercomma,
+        "-"     =>      \&renderdash,
+        "\n"=>  \&wrap,
+};
+
+my $to_print = $ARGV[0] || '';
+if (!$to_print) {
+        while (my $line = <STDIN>) {
+                $to_print .= $line;
+        }
+}
+
+if (!$to_print) {
+        die "Usage: $0 [text to print to LCD]\n";
+}
+elsif ( (length($to_print)*4) > BYTES_AVAILABLE()) {
+        die "text ``$to_print'' is too large for LCD!\n";
+}
+else {
+        my @cols;
+
+        my @letters = split(//,uc($to_print));
+
+        open(my $serial, "+<", $serial_device ) || die "Cant write to serial : $!\n";
+        print $serial init();
+        Time::HiRes::usleep(1000);
+        print $serial home();
+        Time::HiRes::usleep(1000);
+        print $serial clear();
+
+        Time::HiRes::usleep(1000);
+        print $serial chr(0x1B).chr(0x47);
+
+        my $bytes_this_line = 0;
+        my ($bytes_written) = (0);
+
+        foreach my $p (@letters) {
+                my @letter = &{$map2bytes->{$p}}( (scalar(@cols)%BYTES_PER_LINE() ) );
+                #my $btoadd = check_wrap($bytes_written, \$bytes_this_line, $serial);
+                push @cols, @letter;
+
+                last if ( scalar(@cols) > BYTES_AVAILABLE() ); #abort if we ran out of space
+        }
+
+        #fill the rest with spaces
+        for my $i (scalar(@cols)..1023) {
+                push @cols, chr(0b00000000);
+        }
+
+        my $skip = 0;
+        for (my $i=0; $i<scalar(@cols);$i+=64) {
+                $skip++;
+                next if (!($skip%2));
+                my $lim = ($i+64);
+                for (my $j=$i; $j < $lim; $j++) {
+                        print $serial $cols[$j];
+                }
+        }
+        #now send right 64x64 to LCD
+        $skip = 0;
+        for (my $i=0; $i<scalar(@cols);$i+=64) {
+                $skip++;
+                next if (($skip%2));
+                my $lim = ($i+64);
+                for (my $j=$i; $j < $lim; $j++) {
+                        print $serial $cols[$j];
+                }
+        }
+
+        Time::HiRes::usleep(1000);
+         
+        close($serial);
+}

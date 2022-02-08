@@ -1,0 +1,234 @@
+#!/usr/bin/perl -w
+use strict;
+use warnings;
+use bytes;
+use Time::HiRes;
+use Fcntl;
+#make sure to send stty -F/dev/ttyS1 raw clocal speed 115200 before
+#based on work done by Saint-Frater on https://git.nox-rhea.org/globals/reverse-engineering/ezio-g500
+
+#Copyright (c) 2021 arx.net - Thanos Chatziathanassiou . All rights reserved.
+#This program is free software; you can redistribute it and/or
+#modify it under the same terms as Perl itself.
+#See [http://www.perl.com/perl/misc/Artistic.html](http://www.perl.com/perl/misc/Artistic.html)
+
+#TODO:  
+#- make sure the serial port is in working condition without stty
+#- probably rewrite in C or Rust (I had no compiler handy when I wrote this)
+#- make the BMP parser works with stuff other than imagemagick
+
+local $| = 1;
+
+#default for checkpoint 12200 / P210 on Linux
+my $serial_device = "/dev/ttyS1";
+
+sub init {
+        return chr(hex(0x1b)).chr(hex(0x40));
+}
+sub clear {
+        return chr(hex(0x0c));
+}
+sub home {
+        return chr(hex(0x0b));
+}
+
+my $byte;
+my @bytes;
+
+#since i got bored to properly parse a bmp file, i hard-coded imagemagicks offset
+#use an image generated like this:
+#convert -pointsize 11 -size 128x64 -font "Arial" -background white -fill black label:"some text\nand some more text" -monochrome text.bmp
+
+sysopen(my $fh, $ARGV[0], Fcntl::O_RDONLY) || die "Cant read $ARGV[0] : $!\n";
+sysseek($fh, 0x82, Fcntl::SEEK_SET);
+while (sysread($fh,$byte,1)) {
+	push @bytes, $byte;
+}
+
+my @data;
+
+for (my $i=scalar(@bytes)-1; $i>0; $i-=16) {
+	push @data,$bytes[$i-15];
+	push @data,$bytes[$i-14];
+	push @data,$bytes[$i-13];
+	push @data,$bytes[$i-12];
+	push @data,$bytes[$i-11];
+	push @data,$bytes[$i-10];
+	push @data,$bytes[$i-9];
+	push @data,$bytes[$i-8];
+	push @data,$bytes[$i-7];
+	push @data,$bytes[$i-6];
+	push @data,$bytes[$i-5];
+	push @data,$bytes[$i-4];
+	push @data,$bytes[$i-3];
+	push @data,$bytes[$i-2];
+	push @data,$bytes[$i-1];
+	push @data,$bytes[$i];
+}
+
+my @cols;
+for my $i (0..1023) {
+	push @cols,0;
+}
+
+sub find_add_idx {
+	my $i = shift;
+	my ($add,$idx) = (0,0);
+
+	   if ($i == 0)		{	$add = 1; $idx = 0;		}
+	elsif ($i == 16)	{	$add = 2; $idx = 0;		}
+	elsif ($i == 32)	{	$add = 4; $idx = 0;		}
+	elsif ($i == 48)	{	$add = 8; $idx = 0;		}
+	elsif ($i == 64)	{	$add = 16; $idx = 0;	}
+	elsif ($i == 80)	{	$add = 32; $idx = 0;	}
+	elsif ($i == 96)	{	$add = 64; $idx = 0;	}
+	elsif ($i == 112)	{	$add = 128; $idx = 0;	}
+	elsif ($i == 128)	{	$add = 1; $idx = 128;	}
+	elsif ($i == 144)	{	$add = 2; $idx = 128;	}
+	elsif ($i == 160)	{	$add = 4; $idx = 128;	}
+	elsif ($i == 176)	{	$add = 8; $idx = 128;	}
+	elsif ($i == 192)	{	$add = 16; $idx = 128;	}
+	elsif ($i == 208)	{	$add = 32; $idx = 128;	}
+	elsif ($i == 224)	{	$add = 64; $idx = 128;	}
+	elsif ($i == 240)	{	$add = 128; $idx = 128;	}
+	elsif ($i == 256)	{	$add = 1; $idx = 256;	}     
+	elsif ($i == 272)	{	$add = 2; $idx = 256;	}     
+	elsif ($i == 288)	{	$add = 4; $idx = 256;	}     
+	elsif ($i == 304)	{	$add = 8; $idx = 256;	}     
+	elsif ($i == 320)	{	$add = 16; $idx = 256;	} 
+	elsif ($i == 336)	{	$add = 32; $idx = 256;	} 
+	elsif ($i == 352)	{	$add = 64; $idx = 256;	} 
+	elsif ($i == 368)	{	$add = 128; $idx = 256;	} 
+	elsif ($i == 384)	{	$add = 1; $idx = 384;	}     
+	elsif ($i == 400)	{	$add = 2; $idx = 384;	}     
+	elsif ($i == 416)	{	$add = 4; $idx = 384;	}     
+	elsif ($i == 432)	{	$add = 8; $idx = 384;	}     
+	elsif ($i == 448)	{	$add = 16; $idx = 384;	} 
+	elsif ($i == 464)	{	$add = 32; $idx = 384;	} 
+	elsif ($i == 480)	{	$add = 64; $idx = 384;	} 
+	elsif ($i == 496)	{	$add = 128; $idx = 384;	} 
+	elsif ($i == 512)	{	$add = 1; $idx = 512;	}     
+	elsif ($i == 528)	{	$add = 2; $idx = 512;	}     
+	elsif ($i == 544)	{	$add = 4; $idx = 512;	}     
+	elsif ($i == 560)	{	$add = 8; $idx = 512;	}     
+	elsif ($i == 576)	{	$add = 16; $idx = 512;	} 
+	elsif ($i == 592)	{	$add = 32; $idx = 512;	} 
+	elsif ($i == 608)	{	$add = 64; $idx = 512;	} 
+	elsif ($i == 624)	{	$add = 128; $idx = 512;	} 
+	elsif ($i == 640)	{	$add = 1; $idx = 640;	}     
+	elsif ($i == 656)	{	$add = 2; $idx = 640;	}     
+	elsif ($i == 672)	{	$add = 4; $idx = 640;	}     
+	elsif ($i == 688)	{	$add = 8; $idx = 640;	}     
+	elsif ($i == 704)	{	$add = 16; $idx = 640;	} 
+	elsif ($i == 720)	{	$add = 32; $idx = 640;	} 
+	elsif ($i == 736)	{	$add = 64; $idx = 640;	} 
+	elsif ($i == 752)	{	$add = 128; $idx = 640;	} 
+	elsif ($i == 768)	{	$add = 1; $idx = 768;	}     
+	elsif ($i == 784)	{	$add = 2; $idx = 768;	}     
+	elsif ($i == 800)	{	$add = 4; $idx = 768;	}     
+	elsif ($i == 816)	{	$add = 8; $idx = 768;	}     
+	elsif ($i == 832)	{	$add = 16; $idx = 768;	} 
+	elsif ($i == 848)	{	$add = 32; $idx = 768;	} 
+	elsif ($i == 864)	{	$add = 64; $idx = 768;	} 
+	elsif ($i == 880)	{	$add = 128; $idx = 768;	} 
+	elsif ($i == 896)	{	$add = 1; $idx = 896;	}     
+	elsif ($i == 912)	{	$add = 2; $idx = 896;	}     
+	elsif ($i == 928)	{	$add = 4; $idx = 896;	}     
+	elsif ($i == 944)	{	$add = 8; $idx = 896;	}     
+	elsif ($i == 960)	{	$add = 16; $idx = 896;	} 
+	elsif ($i == 976)	{	$add = 32; $idx = 896;	} 
+	elsif ($i == 992)	{	$add = 64; $idx = 896;	} 
+	elsif ($i == 1008)	{	$add = 128; $idx = 896;	}
+
+	return ($add,$idx);
+}
+
+for my $j (0..15) {
+	for (my $i=$j; $i<scalar(@data); $i+=16) {
+		my ($add,$idx) = find_add_idx( ($i-$j) );
+		$idx += ($j*8);
+		
+		if (hex(unpack("H*",$data[$i])) & 0x80) {
+			$cols[$idx] += $add;
+		}
+		if (hex(unpack("H*",$data[$i])) & 0x40) {
+			$cols[$idx+1] += $add;
+		}
+		if (hex(unpack("H*",$data[$i])) & 0x20) {
+			$cols[$idx+2] += $add;
+		}
+		if (hex(unpack("H*",$data[$i])) & 0x10) {
+			$cols[$idx+3] += $add;
+		}
+		if (hex(unpack("H*",$data[$i])) & 8) {
+			$cols[$idx+4] += $add;
+		}
+		if (hex(unpack("H*",$data[$i])) & 4) {
+			$cols[$idx+5] += $add;
+		}
+		if (hex(unpack("H*",$data[$i])) & 2) {
+			$cols[$idx+6] += $add;
+		}
+		if (hex(unpack("H*",$data[$i])) & 1) {
+			$cols[$idx+7] += $add;
+		}
+	}
+}
+
+#this is for display purposes only
+for (my $i=0; $i<scalar(@data); $i+=16) {
+	printf ("%08b",(hex(unpack("H*",$data[$i]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+1]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+2]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+3]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+4]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+5]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+6]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+7]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+8]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+9]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+10]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+11]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+12]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+13]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+14]))));
+	printf ("%08b",(hex(unpack("H*",$data[$i+15]))));
+	
+	printf("\n");
+}
+
+open(my $serial, "+<", $serial_device) || die "Cant write to serial : $!\n";
+print $serial init();
+Time::HiRes::usleep(1000);
+print $serial home();
+Time::HiRes::usleep(1000);
+print $serial clear();
+
+Time::HiRes::usleep(1000);
+print $serial chr(0x1B).chr(0x47);
+
+#LCD expects left 64x64 first
+my $skip = 0;
+for (my $i=0; $i<scalar(@cols);$i+=64) {
+	$skip++;
+	next if (!($skip%2));
+	my $lim = ($i+64);
+	for (my $j=$i; $j < $lim; $j++) {
+		print $serial chr(int($cols[$j])^0xff );
+	}
+}
+#now send right 64x64 to LCD
+$skip = 0;
+for (my $i=0; $i<scalar(@cols);$i+=64) {
+	$skip++;
+	next if (($skip%2));
+	my $lim = ($i+64);
+	for (my $j=$i; $j < $lim; $j++) {
+		print $serial chr(int($cols[$j])^0xff );
+	}
+}
+printf("\n");
+
+Time::HiRes::usleep(1000);
+ 
+close($serial);
