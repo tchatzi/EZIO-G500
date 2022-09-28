@@ -440,6 +440,15 @@ sub renderdash {
                                 ];
         return map { chr } @$letter;
 }
+sub renderunderscore {
+        my $letter = [
+                                        0b10000000,
+                                        0b10000000,
+                                        0b10000000,
+                                        0b00000000,
+                                ];
+        return map { chr } @$letter;
+}
 
 sub check_wrap {
         my ($bytes_written, $bytes_this_line) = @_;
@@ -517,6 +526,7 @@ my $map2bytes = {
         "\\"=>  \&renderbslash,
         ","     =>      \&rendercomma,
         "-"     =>      \&renderdash,
+        "_"     =>      \&renderunderscore,
         "\n"=>  \&wrap,
 };
 

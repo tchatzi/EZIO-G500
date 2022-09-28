@@ -24,6 +24,8 @@ A simple interface for writting to the LCD screen on Checkpoint 12200
 
     0.0.1
            Initial Release
+    0.0.2
+           Added underscore to characters and some examples
 
 # DEPENDENCIES
 
