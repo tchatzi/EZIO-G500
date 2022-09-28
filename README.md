@@ -50,6 +50,30 @@ Probably lots.
 
 Saint-Frater for doing the serial capture and deciphering most of the protocol
 
+# EXAMPLES
+
+The examples subdirectory contains some stuff that I managed to do with the scripts
+along with the sensors configuration that was used to produce the results
+
+[![sensors](images/sensors_small.jpg)](images/sensors.jpg)
+
+The sensors got displayed like so:
+
+    sensors | egrep 'Core|fan|board' | sed 's/ [(].*$//' | sed 's/+//' | sed 's/  */ /g' |  tr -d [°]  | /usr/local/bin/text2lcd
+
+[![animation](images/animation_small.jpg)](images/animation_small.mp4 "animation")
+
+This animation was produced with this sily little bash script:
+
+    while true
+    do 
+        /usr/local/bin/bmp2lcd animation/a1.bmp
+        /usr/local/bin/bmp2lcd animation/a2.bmp 
+        /usr/local/bin/bmp2lcd animation/a3.bmp 
+        /usr/local/bin/bmp2lcd animation/a4.bmp
+        /usr/local/bin/bmp2lcd animation/a5.bmp
+    done
+
 # AUTHOR
 
 Thanos Chatziathanassiou <tchatzi@arx.net>
